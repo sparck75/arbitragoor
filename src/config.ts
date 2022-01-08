@@ -1,5 +1,5 @@
 import dotenv from 'dotenv'
-import Joi from 'joi';
+import Joi from 'joi'
 
 
 const applicationConfigSchema: Joi.ObjectSchema = Joi.object({
@@ -14,25 +14,25 @@ const applicationConfigSchema: Joi.ObjectSchema = Joi.object({
     // Pair we are going to arbitrage
     KLIMA_ADDRESS: Joi.string().required(),
     USDC_ADDRESS: Joi.string().required(),
-});
+})
 
 export class ConfigService {
-    private config;
+    private config
 
     constructor() {
-      this.config = this.validateConfig(dotenv.config().parsed);
+      this.config = this.validateConfig(dotenv.config().parsed)
     }
   
     get(key: string): string {
-      return process.env[key] || this.config[key];
+      return process.env[key] || this.config[key]
     }
   
     private validateConfig(parsedConfig: any): any {
-      const { error, value: validatedEnvConfig } = applicationConfigSchema.validate(parsedConfig);
+      const { error, value: validatedEnvConfig } = applicationConfigSchema.validate(parsedConfig)
       if (error) {
-        throw Error(`Failed to validate config: ${error.message}`);
+        throw Error(`Failed to validate config: ${error.message}`)
       }
-      return validatedEnvConfig;
+      return validatedEnvConfig
     }
   }
   

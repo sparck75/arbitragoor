@@ -1,13 +1,13 @@
 import { ChainId, Pair, Token } from '@sushiswap/sdk'
-import { ethers } from 'ethers';
+import { ethers } from 'ethers'
 
 import { ConfigService } from './config'
-import { getKlima, getKlima2, getUsdc, getUsdc2 } from './helpers';
+import { arbitrageCheck, getKlima, getKlima2, getUsdc, getUsdc2 } from './helpers'
 
 
 const config = new ConfigService()
-const provider = new ethers.providers.JsonRpcProvider(config.get('NODE_API_URL'));
-const wallet = new ethers.Wallet(config.get('PRIVATE_KEY'), provider);
+const provider = new ethers.providers.JsonRpcProvider(config.get('NODE_API_URL'))
+const wallet = new ethers.Wallet(config.get('PRIVATE_KEY'), provider)
 
 
 /************************************************
@@ -74,62 +74,58 @@ const loaner = new ethers.Contract(flashloanAddress, flashloanAbi, wallet)
 // terms of speed is to run multiple bots with different sizes
 // to avoid spending the extra time needed to figure the right
 // value out.
-const usdcHumanReadble = Number(config.get('BORROWED_AMOUNT'));
-const usdcToBorrow = usdcHumanReadble * 1e6;
+const usdcHumanReadble = Number(config.get('BORROWED_AMOUNT'))
+const usdcToBorrow = usdcHumanReadble * 1e6
 console.log(`USDC to borrow: ${usdcHumanReadble}`)
 
 provider.on('block', async (blockNumber) => {
     try {
         // TODO: Guard in case we executed a swap X seconds ago
-        console.log(`Block number: ${blockNumber}`);
+        console.log(`Block number: ${blockNumber}`)
 
+        // Gather reserves from all Klima pools
+        const klimaPools = []
         // USDC -> BCT -> KLIMA
         const klimaViaBct = await getKlima(usdcToBorrow, usdcBct, klimaBct)
-
+        klimaPools.push({klima: klimaViaBct, usdcToToken: usdcBct, tokenToKlima: klimaBct})
         // USDC -> MCO2 -> KLIMA
         // const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
-        // console.log(`[MCO2] USDC ${usdcHumanReadble} -> KLIMA ${klimaViaMco2 / 1e9}`);
+        // klimaPools.push({klima: klimaViaMco2, usdcToToken: usdcMco2, tokenToKlima: klimaMco2})
 
-        // USDC -> KLIMA
-        const klimaDirect = await getKlima2(usdcToBorrow, usdcKlima)
+        const { netResult, path } = await arbitrageCheck(klimaPools, usdcToBorrow)
 
-        let netResult = -usdcToBorrow;
-        if (klimaViaBct > klimaDirect) {
-            netResult += await getUsdc2(klimaViaBct, usdcKlima)
-        } else if (klimaDirect > klimaViaBct) {
-            netResult += await getUsdc(klimaDirect, usdcBct, klimaBct)
-        }
+        // USDC/KLIMA is a low-liquidity pool so check whether we
+        // can arb this pool only when we cannot arb elsewhere.
+        // const klimaDirect = await getKlima2(usdcToBorrow, usdcKlima)
+
         console.log(`Got USDC return: ${netResult / 1e6}`)
         if (netResult <= 0) {
             // Not today
             return
         }
 
-        // TODO: Construct path and execute flashloan request
-        const path: string[] = [];
-
         const gasLimit = await loaner.estimateGas.flashloan(
             config.get('USDC_ADDRESS'),
             usdcToBorrow,
             path,
-        );
+        )
         const gasPrice = await wallet.getGasPrice();
-        const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)));
+        const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)))
 
         const options = {
             gasPrice,
             gasLimit,
-        };
+        }
         const tx = await loaner.flashloan(
             config.get('USDC_ADDRESS'),
             usdcToBorrow,
             path,
             options
-        );
-        await tx.wait();
+        )
+        await tx.wait()
 
-        console.log(`Flashloan request ${tx.hash} successfully mined`);
+        console.log(`Flashloan request ${tx.hash} successfully mined`)
     } catch (err) {
-        console.error(`Failed to execute flasloan request: ${err}`);
+        console.error(`Failed to execute flasloan request: ${err}`)
     }
 });
