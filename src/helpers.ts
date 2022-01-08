@@ -22,16 +22,6 @@ export const getUsdc = async function(amountIn: number, usdcToToken: ethers.Cont
     return getAmountOut(tokenAmount, usdcReserves[1], usdcReserves[0])
 }
 
-export const getKlima2 = async function(amountIn: number, usdcToKlima: ethers.Contract): Promise<number> {
-    const reserves = await usdcToKlima.getReserves()
-    return getAmountOut(amountIn, reserves[0], reserves[1])
-}
-
-export const getUsdc2 = async function(amountIn: number, usdcToKlima: ethers.Contract): Promise<number> {
-    const reserves = await usdcToKlima.getReserves()
-    return getAmountOut(amountIn, reserves[1], reserves[0])
-}
-
 interface Pool {
     klima: number
     usdcToToken: ethers.Contract

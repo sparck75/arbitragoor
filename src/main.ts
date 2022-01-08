@@ -2,7 +2,7 @@ import { ChainId, Pair, Token } from '@sushiswap/sdk'
 import { ethers } from 'ethers'
 
 import { ConfigService } from './config'
-import { arbitrageCheck, getKlima, getKlima2, getUsdc, getUsdc2 } from './helpers'
+import { arbitrageCheck, getKlima } from './helpers'
 
 
 const config = new ConfigService()
@@ -28,13 +28,11 @@ const usdcBctAddress = Pair.getAddress(usdc, bct)
 const usdcMco2Address = Pair.getAddress(usdc, mco2)
 const klimaBctAddress = Pair.getAddress(klima, bct)
 const klimaMco2Address = Pair.getAddress(klima, mco2)
-const usdcKlimaAddress = Pair.getAddress(usdc, klima)
 
 console.log(`USDC/BCT: ${usdcBctAddress}`)
 console.log(`USDC/MCO2: ${usdcMco2Address}`)
 console.log(`KLIMA/BCT: ${klimaBctAddress}`)
 console.log(`KLIMA/MCO2: ${klimaMco2Address}`)
-console.log(`KLIMA/USDC: ${usdcKlimaAddress}`)
 
 
 /************************************************
@@ -50,8 +48,6 @@ const klimaBct = new ethers.Contract(klimaBctAddress, uniPairAbi, wallet)
 // USDC -> MCO2 -> KLIMA
 const usdcMco2 = new ethers.Contract(usdcMco2Address, uniPairAbi, wallet)
 const klimaMco2 = new ethers.Contract(klimaMco2Address, uniPairAbi, wallet)
-// USDC -> KLIMA
-const usdcKlima = new ethers.Contract(usdcKlimaAddress, uniPairAbi, wallet)
 
 
 /************************************************
@@ -92,15 +88,10 @@ provider.on('block', async (blockNumber) => {
         // const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
         // klimaPools.push({klima: klimaViaMco2, usdcToToken: usdcMco2, tokenToKlima: klimaMco2})
 
+        // Check whether we can execute an arbitrage
         const { netResult, path } = await arbitrageCheck(klimaPools, usdcToBorrow)
-
-        // USDC/KLIMA is a low-liquidity pool so check whether we
-        // can arb this pool only when we cannot arb elsewhere.
-        // const klimaDirect = await getKlima2(usdcToBorrow, usdcKlima)
-
         console.log(`Got USDC return: ${netResult / 1e6}`)
         if (netResult <= 0) {
-            // Not today
             return
         }
 
@@ -110,6 +101,8 @@ provider.on('block', async (blockNumber) => {
             path,
         )
         const gasPrice = await wallet.getGasPrice();
+        // TODO: Sum gas costs with net result to ensure we are
+        // still profitable
         const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)))
 
         const options = {
