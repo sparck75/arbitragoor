@@ -63,103 +63,88 @@ const klimaMco2 = new ethers.Contract(klimaMco2Address, abi, wallet)
 // USDC -> KLIMA
 const usdcKlima = new ethers.Contract(usdcKlimaAddress, abi, wallet)
 
-const getKlimaPrice = async function(usdcToToken: ethers.Contract, tokenToKlima: ethers.Contract): Promise<number> {
-    const usdcReserves = await usdcToToken.getReserves()
-    const klimaReserves = await tokenToKlima.getReserves()
+const usdcHumanReadble = 1000;
+const usdcToBorrow = usdcHumanReadble * 1e6;
 
-    const usdc = Number(ethers.utils.formatUnits(usdcReserves[0], 6))
-    const tokenInUsdcPool = Number(ethers.utils.formatUnits(usdcReserves[1], 18))
-    const tokenPrice = usdc / tokenInUsdcPool
-
-    const tokenInKlimaPool = Number(ethers.utils.formatUnits(klimaReserves[0], 18))
-    const klima = Number(ethers.utils.formatUnits(klimaReserves[1], 9))
-    return tokenInKlimaPool * tokenPrice / klima
+// Copied from https://github.com/sushiswap/sushiswap/blob/45da97206358039039883c4a99c005bb8a4bef0c/contracts/uniswapv2/libraries/UniswapV2Library.sol#L48-L51
+const getAmountOut = function(amountIn: number, reserveIn: number, reserveOut: number): number {
+    const amountInWithFee = amountIn * 997;
+    const numerator = amountInWithFee * reserveOut;
+    const denominator = (reserveIn * 1000) + amountInWithFee;
+    return numerator / denominator;
 }
 
-const getKlimaPrice2 = async function(usdcToKlima: ethers.Contract): Promise<number> {
+const getKlima = async function(amountIn: number, usdcToToken: ethers.Contract, tokenToKlima: ethers.Contract): Promise<number> {
+    const usdcReserves = await usdcToToken.getReserves()
+    const tokenAmount = getAmountOut(amountIn, usdcReserves[0], usdcReserves[1])
+    const klimaReserves = await tokenToKlima.getReserves()
+    return getAmountOut(tokenAmount, klimaReserves[0], klimaReserves[1])
+}
+
+const getUsdc = async function(amountIn: number, usdcToToken: ethers.Contract, tokenToKlima: ethers.Contract): Promise<number> {
+    const klimaReserves = await tokenToKlima.getReserves()
+    const tokenAmount = getAmountOut(amountIn, klimaReserves[1], klimaReserves[0])
+    const usdcReserves = await usdcToToken.getReserves()
+    return getAmountOut(tokenAmount, usdcReserves[1], usdcReserves[0])
+}
+
+const getKlima2 = async function(amountIn: number, usdcToKlima: ethers.Contract): Promise<number> {
     const reserves = await usdcToKlima.getReserves()
+    return getAmountOut(amountIn, reserves[0], reserves[1]);
+}
 
-    const usdc = Number(ethers.utils.formatUnits(reserves[0], 6))
-    const klima = Number(ethers.utils.formatUnits(reserves[1], 9))
-
-    return usdc / klima
+const getUsdc2 = async function(amountIn: number, usdcToKlima: ethers.Contract): Promise<number> {
+    const reserves = await usdcToKlima.getReserves()
+    return getAmountOut(amountIn, reserves[1], reserves[0]);
 }
 
 provider.on('block', async (blockNumber) => {
     try {
+        // TODO: Guard in case we executed a swap X seconds ago
         console.log(`Block number: ${blockNumber}`);
 
-        // Fetch the reserves of the contracts we are arbing
-
         // USDC -> BCT -> KLIMA
-        const priceKlimaBct = await getKlimaPrice(usdcBct, klimaBct)
-        console.log(`USDC/KLIMA price (via BCT): ${priceKlimaBct}`);
+        const klimaViaBct = await getKlima(usdcToBorrow, usdcBct, klimaBct)
 
         // USDC -> MCO2 -> KLIMA
-        // const priceKlimaMco2 = await getKlimaPrice(usdcMco2, klimaMco2)
-        // console.log(`USDC/KLIMA price (via MCO2): ${priceKlimaMco2}`);
+        // const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
+        // console.log(`[MCO2] USDC ${usdcHumanReadble} -> KLIMA ${klimaViaMco2 / 1e9}`);
 
         // USDC -> KLIMA
-        const priceKlima = await getKlimaPrice2(usdcKlima)
-        console.log(`USDC/KLIMA price (directly): ${priceKlima}`);
+        const klimaDirect = await getKlima2(usdcToBorrow, usdcKlima)
 
+        let netResult = -usdcToBorrow;
+        if (klimaViaBct > klimaDirect) {
+            netResult += await getUsdc2(klimaViaBct, usdcKlima)
+        } else if (klimaDirect > klimaViaBct) {
+            netResult += await getUsdc(klimaDirect, usdcBct, klimaBct)
+        }
+        console.log(`Got USDC return: ${netResult / 1e6}`)
+        if (netResult <= 0) {
+            // Not today
+            return
+        }
 
-    //   const priceUniswap = reserve0Uni / reserve1Uni;
-    //   const priceSushiswap = reserve0Sushi / reserve1Sushi;
+        // TODO: Construct path and execute flashloan request
 
-    //   const shouldStartEth = priceUniswap < priceSushiswap;
-    //   const spread = Math.abs((priceSushiswap / priceUniswap - 1) * 100) - 0.6;
+        //   const options = {
+        //     gasPrice,
+        //     gasLimit,
+        //   };
+        //   const tx = await sushiEthDai.swap(
+        //     !shouldStartEth ? DAI_TRADE : 0,
+        //     shouldStartEth ? ETH_TRADE : 0,
+        //     flashLoanerAddress,
+        //     ethers.utils.toUtf8Bytes('1'), options,
+        //   );
 
-    //   const shouldTrade = spread > (
-    //     (shouldStartEth ? ETH_TRADE : DAI_TRADE)
-    //      / Number(
-    //        ethers.utils.formatEther(uniswapReserves[shouldStartEth ? 1 : 0]),
-    //      ));
+        //   console.log('ARBITRAGE EXECUTED! PENDING TX TO BE MINED');
+        //   console.log(tx);
 
-    //   console.log(`UNISWAP PRICE ${priceUniswap}`);
-    //   console.log(`SUSHISWAP PRICE ${priceSushiswap}`);
-    //   console.log(`PROFITABLE? ${shouldTrade}`);
-    //   console.log(`CURRENT SPREAD: ${(priceSushiswap / priceUniswap - 1) * 100}%`);
-    //   console.log(`ABSLUTE SPREAD: ${spread}`);
+        //   await tx.wait();
 
-    //   if (!shouldTrade) return;
-
-    //   const gasLimit = await sushiEthDai.estimateGas.swap(
-    //     !shouldStartEth ? DAI_TRADE : 0,
-    //     shouldStartEth ? ETH_TRADE : 0,
-    //     flashLoanerAddress,
-    //     ethers.utils.toUtf8Bytes('1'),
-    //   );
-
-    //   const gasPrice = await wallet.getGasPrice();
-
-    //   const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)));
-
-    //   const shouldSendTx = shouldStartEth
-    //     ? (gasCost / ETH_TRADE) < spread
-    //     : (gasCost / (DAI_TRADE / priceUniswap)) < spread;
-
-    //   // don't trade if gasCost is higher than the spread
-    //   if (!shouldSendTx) return;
-
-    //   const options = {
-    //     gasPrice,
-    //     gasLimit,
-    //   };
-    //   const tx = await sushiEthDai.swap(
-    //     !shouldStartEth ? DAI_TRADE : 0,
-    //     shouldStartEth ? ETH_TRADE : 0,
-    //     flashLoanerAddress,
-    //     ethers.utils.toUtf8Bytes('1'), options,
-    //   );
-
-    //   console.log('ARBITRAGE EXECUTED! PENDING TX TO BE MINED');
-    //   console.log(tx);
-
-    //   await tx.wait();
-
-    //   console.log('SUCCESS! TX MINED');
+        //   console.log('SUCCESS! TX MINED');
     } catch (err) {
-        console.error(`Failed to arb: ${err}`);
+        console.error(`Failed to execute arbitrage request: ${err}`);
     }
 });
