@@ -41,18 +41,28 @@ console.log(`KLIMA/USDC: ${usdcKlimaAddress}`)
  *  ROUTES TO ARB
  ***********************************************/
 
- const pairAbi = [
+ const uniPairAbi = new ethers.utils.Interface([
     'function getReserves() view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)',
-]
-const abi = new ethers.utils.Interface(pairAbi)
+])
 // USDC -> BCT -> KLIMA
-const usdcBct = new ethers.Contract(usdcBctAddress, abi, wallet)
-const klimaBct = new ethers.Contract(klimaBctAddress, abi, wallet)
+const usdcBct = new ethers.Contract(usdcBctAddress, uniPairAbi, wallet)
+const klimaBct = new ethers.Contract(klimaBctAddress, uniPairAbi, wallet)
 // USDC -> MCO2 -> KLIMA
-const usdcMco2 = new ethers.Contract(usdcMco2Address, abi, wallet)
-const klimaMco2 = new ethers.Contract(klimaMco2Address, abi, wallet)
+const usdcMco2 = new ethers.Contract(usdcMco2Address, uniPairAbi, wallet)
+const klimaMco2 = new ethers.Contract(klimaMco2Address, uniPairAbi, wallet)
 // USDC -> KLIMA
-const usdcKlima = new ethers.Contract(usdcKlimaAddress, abi, wallet)
+const usdcKlima = new ethers.Contract(usdcKlimaAddress, uniPairAbi, wallet)
+
+
+/************************************************
+ *  FLASHLOAN INTERFACE
+ ***********************************************/
+
+const flashloanAbi = new ethers.utils.Interface([
+    'function flashloan(address asset, uint256 amount, address[] calldata path) public',
+])
+const flashloanAddress = config.get('FLASHLOAN_ADDRESS')
+const loaner = new ethers.Contract(flashloanAddress, flashloanAbi, wallet)
 
 
 /************************************************
@@ -96,25 +106,30 @@ provider.on('block', async (blockNumber) => {
         }
 
         // TODO: Construct path and execute flashloan request
+        const path: string[] = [];
 
-        //   const options = {
-        //     gasPrice,
-        //     gasLimit,
-        //   };
-        //   const tx = await sushiEthDai.swap(
-        //     !shouldStartEth ? DAI_TRADE : 0,
-        //     shouldStartEth ? ETH_TRADE : 0,
-        //     flashLoanerAddress,
-        //     ethers.utils.toUtf8Bytes('1'), options,
-        //   );
+        const gasLimit = await loaner.estimateGas.flashloan(
+            config.get('USDC_ADDRESS'),
+            usdcToBorrow,
+            path,
+        );
+        const gasPrice = await wallet.getGasPrice();
+        const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)));
 
-        //   console.log('ARBITRAGE EXECUTED! PENDING TX TO BE MINED');
-        //   console.log(tx);
+        const options = {
+            gasPrice,
+            gasLimit,
+        };
+        const tx = await loaner.flashloan(
+            config.get('USDC_ADDRESS'),
+            usdcToBorrow,
+            path,
+            options
+        );
+        await tx.wait();
 
-        //   await tx.wait();
-
-        //   console.log('SUCCESS! TX MINED');
+        console.log(`Flashloan request ${tx.hash} successfully mined`);
     } catch (err) {
-        console.error(`Failed to execute arbitrage request: ${err}`);
+        console.error(`Failed to execute flasloan request: ${err}`);
     }
 });
