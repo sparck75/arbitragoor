@@ -3,6 +3,7 @@ import Joi from 'joi';
 
 
 const applicationConfigSchema: Joi.ObjectSchema = Joi.object({
+    BORROWED_AMOUNT: Joi.number().required(),
     NODE_API_URL: Joi.string().uri().required(),
     PRIVATE_KEY: Joi.string().required(),
 

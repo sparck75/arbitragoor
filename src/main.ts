@@ -59,8 +59,14 @@ const usdcKlima = new ethers.Contract(usdcKlimaAddress, abi, wallet)
  *  MAIN
  ***********************************************/
 
-const usdcHumanReadble = 200;
+// It may be worth making this dynamic in the future based
+// on pool volume but I suspect a more optimal solution in
+// terms of speed is to run multiple bots with different sizes
+// to avoid spending the extra time needed to figure the right
+// value out.
+const usdcHumanReadble = Number(config.get('BORROWED_AMOUNT'));
 const usdcToBorrow = usdcHumanReadble * 1e6;
+console.log(`USDC to borrow: ${usdcHumanReadble}`)
 
 provider.on('block', async (blockNumber) => {
     try {
