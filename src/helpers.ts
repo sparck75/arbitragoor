@@ -33,7 +33,7 @@ interface Result {
     path: string[]
 }
 
-export const arbitrageCheck = async function(pools: Pool[], usdcToBorrow: number): Promise<Result> {
+export const arbitrageCheck = async function(pools: Pool[], debt: number): Promise<Result> {
     if (pools.length < 2)
         throw Error('Need multiple pools to check for arbitrage')
 
@@ -53,7 +53,7 @@ export const arbitrageCheck = async function(pools: Pool[], usdcToBorrow: number
         pools[last].klima,
         pools[0].usdcToToken,
         pools[0].tokenToKlima
-    ) - usdcToBorrow
+    ) - debt
 
     if (netResult <= 0) {
         // Not today

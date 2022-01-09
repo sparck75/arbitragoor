@@ -60,11 +60,6 @@ const flashloanAbi = new ethers.utils.Interface([
 const flashloanAddress = config.get('FLASHLOAN_ADDRESS')
 const loaner = new ethers.Contract(flashloanAddress, flashloanAbi, wallet)
 
-
-/************************************************
- *  MAIN
- ***********************************************/
-
 // It may be worth making this dynamic in the future based
 // on pool volume but I suspect a more optimal solution in
 // terms of speed is to run multiple bots with different sizes
@@ -72,7 +67,16 @@ const loaner = new ethers.Contract(flashloanAddress, flashloanAbi, wallet)
 // value out.
 const usdcHumanReadble = Number(config.get('BORROWED_AMOUNT'))
 const usdcToBorrow = usdcHumanReadble * 1e6
+// Premium withheld by AAVE
+// https://github.com/aave/protocol-v2/blob/30a2a19f6d28b6fb8d26fc07568ca0f2918f4070/contracts/protocol/lendingpool/LendingPool.sol#L502
+const premium = usdcToBorrow * 9 / 10000
+const totalDebt = usdcToBorrow + premium
 console.log(`USDC to borrow: ${usdcHumanReadble}`)
+
+
+/************************************************
+ *  MAIN
+ ***********************************************/
 
 provider.on('block', async (blockNumber) => {
     try {
@@ -89,7 +93,7 @@ provider.on('block', async (blockNumber) => {
         // klimaPools.push({klima: klimaViaMco2, usdcToToken: usdcMco2, tokenToKlima: klimaMco2})
 
         // Check whether we can execute an arbitrage
-        const { netResult, path } = await arbitrageCheck(klimaPools, usdcToBorrow)
+        const { netResult, path } = await arbitrageCheck(klimaPools, totalDebt)
         console.log(`Got USDC return: ${netResult / 1e6}`)
         if (netResult <= 0) {
             return
