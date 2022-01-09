@@ -78,11 +78,10 @@ console.log(`USDC to borrow: ${usdcHumanReadble}`)
  *  MAIN
  ***********************************************/
 
+let locked = false
+
 provider.on('block', async (blockNumber) => {
     try {
-        // TODO: Guard in case we executed a swap X seconds ago
-        console.log(`Block number: ${blockNumber}`)
-
         // Gather reserves from all Klima pools
         const klimaPools = []
         // USDC -> BCT -> KLIMA
@@ -94,9 +93,14 @@ provider.on('block', async (blockNumber) => {
 
         // Check whether we can execute an arbitrage
         const { netResult, path } = await arbitrageCheck(klimaPools, totalDebt)
-        console.log(`Got USDC return: ${netResult / 1e6}`)
+        console.log(`#${blockNumber}: Got USDC return: ${netResult / 1e6}`)
         if (netResult <= 0) {
             return
+        }
+        if (locked) {
+            console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
+        } else {
+            locked = true
         }
 
         const gasLimit = await loaner.estimateGas.flashloan(
@@ -121,8 +125,10 @@ provider.on('block', async (blockNumber) => {
         )
         await tx.wait()
 
-        console.log(`Flashloan request ${tx.hash} successfully mined`)
+        console.log(`#${blockNumber}: Flashloan request ${tx.hash} successfully mined`)
     } catch (err) {
-        console.error(`Failed to execute flasloan request: ${err}`)
+        console.error(`#${blockNumber}: Failed to execute flasloan request: ${err}`)
+    } finally {
+        locked = false
     }
 });
