@@ -39,7 +39,7 @@ console.log(`KLIMA/MCO2: ${klimaMco2Address}`)
  *  ROUTES TO ARB
  ***********************************************/
 
- const uniPairAbi = new ethers.utils.Interface([
+const uniPairAbi = new ethers.utils.Interface([
     'function getReserves() view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)',
 ])
 // USDC -> BCT -> KLIMA
@@ -89,8 +89,8 @@ provider.on('block', async (blockNumber) => {
         const klimaViaBct = await getKlima(usdcToBorrow, usdcBct, klimaBct)
         klimaPools.push({klima: klimaViaBct, usdcToToken: usdcBct, tokenToKlima: klimaBct})
         // USDC -> MCO2 -> KLIMA
-        // const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
-        // klimaPools.push({klima: klimaViaMco2, usdcToToken: usdcMco2, tokenToKlima: klimaMco2})
+        const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
+        klimaPools.push({klima: klimaViaMco2, usdcToToken: usdcMco2, tokenToKlima: klimaMco2})
 
         // Check whether we can execute an arbitrage
         const { netResult, path } = await arbitrageCheck(klimaPools, totalDebt)
