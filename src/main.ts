@@ -70,12 +70,12 @@ const loaner = new ethers.Contract(flashloanAddress, flashloanAbi, wallet)
 // terms of speed is to run multiple bots with different sizes
 // to avoid spending the extra time needed to figure the right
 // value out.
-const usdcHumanReadble = Number(config.get('BORROWED_AMOUNT'))
-const usdcToBorrow = usdcHumanReadble * 1e6
+const usdcHumanReadble = config.get('BORROWED_AMOUNT')
+const usdcToBorrow = ethers.utils.parseUnits(usdcHumanReadble, 6)
 // Premium withheld by AAVE
 // https://github.com/aave/protocol-v2/blob/30a2a19f6d28b6fb8d26fc07568ca0f2918f4070/contracts/protocol/lendingpool/LendingPool.sol#L502
-const premium = usdcToBorrow * 9 / 10000
-const totalDebt = usdcToBorrow + premium
+const premium = usdcToBorrow.mul(9).div(10000)
+const totalDebt = usdcToBorrow.add(premium)
 console.log(`USDC to borrow: ${usdcHumanReadble}`)
 
 
@@ -108,8 +108,8 @@ provider.on('block', async (blockNumber) => {
 
         // Check whether we can execute an arbitrage
         const { netResult, path } = await arbitrageCheck(klimaPools, totalDebt)
-        console.log(`#${blockNumber}: Got USDC return: ${netResult / 1e6}`)
-        if (netResult <= 0) {
+        console.log(`#${blockNumber}: Got USDC return: ${netResult.div(1e6)}`)
+        if (netResult.lte(0)) {
             return
         }
         if (locked) {
