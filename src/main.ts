@@ -1,5 +1,5 @@
 import { ChainId, Pair, Token } from '@sushiswap/sdk'
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 
 import { ConfigService } from './config'
 import { arbitrageCheck, getKlima } from './helpers'
@@ -103,12 +103,9 @@ provider.on('block', async (blockNumber) => {
             locked = true
         }
 
-        const gasLimit = await loaner.estimateGas.flashloan(
-            config.get('USDC_ADDRESS'),
-            usdcToBorrow,
-            path,
-        )
-        const gasPrice = await wallet.getGasPrice();
+        // TODO: Read gas limit dynamically
+        const gasLimit = BigNumber.from(200000)
+        const gasPrice = await wallet.getGasPrice()
         // TODO: Sum gas costs with net result to ensure we are
         // still profitable
         const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)))
