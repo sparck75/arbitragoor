@@ -22,10 +22,11 @@ export const getUsdc = async function(amountIn: number, usdcToToken: ethers.Cont
     return getAmountOut(tokenAmount, usdcReserves[1], usdcReserves[0])
 }
 
-interface Pool {
-    klima: number
+interface Route {
+    klimaAmount: number
     usdcToToken: ethers.Contract
     tokenToKlima: ethers.Contract
+    path: string[]
 }
 
 interface Result {
@@ -33,26 +34,26 @@ interface Result {
     path: string[]
 }
 
-export const arbitrageCheck = async function(pools: Pool[], debt: number): Promise<Result> {
-    if (pools.length < 2)
-        throw Error('Need multiple pools to check for arbitrage')
+export const arbitrageCheck = async function(routes: Route[], debt: number): Promise<Result> {
+    if (routes.length < 2)
+        throw Error('Need multiple routes to check for arbitrage')
 
     // Sort arrays and check for arbitrage opportunity between the
-    // first and last pools.
-    pools.sort(function( a , b) {
-        if (a.klima > b.klima) return 1
-        if (a.klima < b.klima) return -1
+    // first and last routes.
+    routes.sort(function( a , b) {
+        if (a.klimaAmount > b.klimaAmount) return 1
+        if (a.klimaAmount < b.klimaAmount) return -1
         return 0
     })
 
-    const last = pools.length - 1
+    const last = routes.length - 1
     // At this point we know that the last pool in the array gives the most
     // KLIMA for usdcToBorrow so we use that KLIMA amount to check how much
     // USDC the other route can give us.
     const netResult = await getUsdc(
-        pools[last].klima,
-        pools[0].usdcToToken,
-        pools[0].tokenToKlima
+        routes[last].klimaAmount,
+        routes[0].usdcToToken,
+        routes[0].tokenToKlima
     ) - debt
 
     if (netResult <= 0) {
@@ -66,10 +67,11 @@ export const arbitrageCheck = async function(pools: Pool[], debt: number): Promi
     return {
         netResult,
         path: [
-            pools[last].usdcToToken.address,
-            pools[last].tokenToKlima.address,
-            pools[0].tokenToKlima.address,
-            pools[0].usdcToToken.address,
+            routes[last].path[0],
+            routes[last].path[1],
+            routes[last].path[2],
+            routes[0].path[1],
+            routes[0].path[0],
         ],
     }
 }

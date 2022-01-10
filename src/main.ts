@@ -19,6 +19,11 @@ const mco2 = new Token(ChainId.MATIC, config.get('MCO2_ADDRESS'), 18, 'MCO2')
 const usdc = new Token(ChainId.MATIC, config.get('USDC_ADDRESS'), 6, 'USDC')
 const klima = new Token(ChainId.MATIC, config.get('KLIMA_ADDRESS'), 18, 'KLIMA')
 
+console.log(`USDC: ${bct.address}`)
+console.log(`KLIMA: ${klima.address}`)
+console.log(`BCT: ${bct.address}`)
+console.log(`MCO2: ${mco2.address}`)
+
 
 /************************************************
  *  LP ADDRESSES
@@ -86,10 +91,20 @@ provider.on('block', async (blockNumber) => {
         const klimaPools = []
         // USDC -> BCT -> KLIMA
         const klimaViaBct = await getKlima(usdcToBorrow, usdcBct, klimaBct)
-        klimaPools.push({klima: klimaViaBct, usdcToToken: usdcBct, tokenToKlima: klimaBct})
+        klimaPools.push({
+            klimaAmount: klimaViaBct,
+            usdcToToken: usdcBct,
+            tokenToKlima: klimaBct,
+            path: [ usdc.address, bct.address, klima.address]
+        })
         // USDC -> MCO2 -> KLIMA
         const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
-        klimaPools.push({klima: klimaViaMco2, usdcToToken: usdcMco2, tokenToKlima: klimaMco2})
+        klimaPools.push({
+            klimaAmount: klimaViaMco2,
+            usdcToToken: usdcMco2,
+            tokenToKlima: klimaMco2,
+            path: [ usdc.address, mco2.address, klima.address]
+        })
 
         // Check whether we can execute an arbitrage
         const { netResult, path } = await arbitrageCheck(klimaPools, totalDebt)
