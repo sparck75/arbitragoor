@@ -40,23 +40,22 @@ export const arbitrageCheck = async function(routes: Route[], debt: BigNumber): 
 
     // Sort arrays and check for arbitrage opportunity between the
     // first and last routes.
-    routes.sort(function( a , b) {
-        if (a.klimaAmount > b.klimaAmount) return 1
-        if (a.klimaAmount < b.klimaAmount) return -1
-        return 0
+    routes.sort(function(a, b) {
+        // Ascending order
+        return a.klimaAmount.sub(b.klimaAmount).toNumber()
     })
 
     const last = routes.length - 1
-    // At this point we know that the last pool in the array gives the most
-    // KLIMA for usdcToBorrow so we use that KLIMA amount to check how much
-    // USDC the other route can give us.
+    // At this point we know that the last route in the array gets us the
+    // most KLIMA for usdcToBorrow so we use that KLIMA amount to check how
+    // much USDC the other route can give us.
     const gotUsdc = await getUsdc(
         routes[last].klimaAmount,
         routes[0].usdcToToken,
         routes[0].tokenToKlima
     )
-    const netResult = gotUsdc.sub(debt)
 
+    const netResult = gotUsdc.sub(debt)
     if (netResult.lte(0)) {
         // Not today
         return {
