@@ -1,11 +1,10 @@
-FROM node:14 AS builder
+FROM node:16 AS builder
 WORKDIR /build
 COPY . .
 RUN yarn build
-COPY ./yarn.lock ./dist/
-RUN cd dist && yarn install --production
 
-FROM gcr.io/distroless/nodejs:14
+FROM gcr.io/distroless/nodejs:16
 COPY --from=builder /build/dist /app
+COPY --from=builder /build/node_modules /app/node_modules
 WORKDIR /app
-CMD ["src/main.js"]
+CMD ["main.js"]

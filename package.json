@@ -10,6 +10,7 @@
   "scripts": {
     "build": "yarn && rm -rf ./dist && tsc -p tsconfig.json && yarn copy",
     "change-keeper": "node ./dist/change-keeper.js",
+    "clean": "rm -rf ./node_modules ./dist",
     "copy": "cp ./package.json ./dist && cp ./yarn.lock ./dist",
     "start": "node ./dist/main.js",
     "withdraw": "node ./dist/withdraw.js"
