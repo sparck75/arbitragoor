@@ -119,7 +119,7 @@ provider.on('block', async (blockNumber) => {
         }
 
         // TODO: Read gas limit dynamically
-        const gasLimit = BigNumber.from(1000000)
+        const gasLimit = BigNumber.from(600000)
         const gasPrice = await wallet.getGasPrice()
         // TODO: Sum gas costs with net result to ensure we are
         // still profitable

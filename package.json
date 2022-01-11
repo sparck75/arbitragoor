@@ -9,8 +9,10 @@
   },
   "scripts": {
     "build": "yarn && rm -rf ./dist && tsc -p tsconfig.json && yarn copy",
+    "change-keeper": "node ./dist/change-keeper.js",
     "copy": "cp ./package.json ./dist && cp ./yarn.lock ./dist",
-    "start": "node ./dist/main.js"
+    "start": "node ./dist/main.js",
+    "withdraw": "node ./dist/withdraw.js"
   },
   "devDependencies": {
     "@types/node": "^17.0.8",
