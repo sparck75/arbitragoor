@@ -119,14 +119,15 @@ provider.on('block', async (blockNumber) => {
         // blocks once we spot an arbitrage opportunity.
         if (locked) {
             console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
+            return
         } else {
             locked = true
         }
         console.log(`Path: ${JSON.stringify(path)}`)
 
         // TODO: Read gas limit dynamically
-        const gasLimit = BigNumber.from(600000)
-        const gasPrice = await wallet.getGasPrice()
+        // const gasLimit = BigNumber.from(600000)
+        // const gasPrice = await wallet.getGasPrice()
         // TODO: Sum gas costs with net result to ensure we are
         // still profitable
         // const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)))
@@ -136,10 +137,6 @@ provider.on('block', async (blockNumber) => {
             config.get('USDC_ADDRESS'),
             usdcToBorrow,
             path,
-            {
-                gasPrice,
-                gasLimit,
-            }
         )
         await tx.wait()
 
