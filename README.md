@@ -16,7 +16,14 @@ Update `.env` with the desired configuration, then run:
 yarn start
 ```
 
-## Maintenance
+## Docker
+
+```
+docker build . -t arbitragoor
+docker run --env-file=.env arbitragoor:latest
+```
+
+## Contract lifecycle
 
 Withdraw any funds from the contract
 ```

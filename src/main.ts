@@ -89,6 +89,7 @@ provider.on('block', async (blockNumber) => {
     try {
         // Gather reserves from all Klima pools
         const klimaPools = []
+
         // USDC -> BCT -> KLIMA
         const klimaViaBct = await getKlima(usdcToBorrow, usdcBct, klimaBct)
         klimaPools.push({
@@ -97,6 +98,7 @@ provider.on('block', async (blockNumber) => {
             tokenToKlima: klimaBct,
             path: [ usdc.address, bct.address, klima.address]
         })
+
         // USDC -> MCO2 -> KLIMA
         const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
         klimaPools.push({
@@ -112,28 +114,32 @@ provider.on('block', async (blockNumber) => {
         if (netResult.lte(0)) {
             return
         }
+
+        // Acquire lock so we won't be submitting multiple transactions across adjacent
+        // blocks once we spot an arbitrage opportunity.
         if (locked) {
             console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
         } else {
             locked = true
         }
+        console.log(`Path: ${JSON.stringify(path)}`)
 
         // TODO: Read gas limit dynamically
         const gasLimit = BigNumber.from(600000)
         const gasPrice = await wallet.getGasPrice()
         // TODO: Sum gas costs with net result to ensure we are
         // still profitable
-        const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)))
+        // const gasCost = Number(ethers.utils.formatEther(gasPrice.mul(gasLimit)))
 
-        const options = {
-            gasPrice,
-            gasLimit,
-        }
+        // Execute flasloan request
         const tx = await loaner.flashloan(
             config.get('USDC_ADDRESS'),
             usdcToBorrow,
             path,
-            options
+            {
+                gasPrice,
+                gasLimit,
+            }
         )
         await tx.wait()
 
