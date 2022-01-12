@@ -1,6 +1,6 @@
 # Arbitragoor
 
-Scripts to execute arbitrage requests.
+Scripts to execute arbitrage requests, used in conjuction with [this smart contract](https://github.com/kargakis/arbitrage-contracts).
 
 ## Build
 
