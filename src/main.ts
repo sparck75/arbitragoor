@@ -96,6 +96,15 @@ let locked = false
 
 provider.on('block', async (blockNumber) => {
     try {
+        // Acquire lock so we won't be submitting multiple transactions across adjacent
+        // blocks once we spot an arbitrage opportunity.
+        if (locked) {
+            console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
+            return
+        } else {
+            locked = true
+        }
+
         // Gather reserves from all Klima pools
         const klimaPools: Route[] = []
         const [
@@ -104,7 +113,7 @@ provider.on('block', async (blockNumber) => {
             usdcMco2Resp,
             klimaMco2Resp,
         ] = await multicallProvider.all(calls);
-    
+
         // USDC -> BCT -> KLIMA
         checkReserves(
             usdcToBorrow,
@@ -129,15 +138,6 @@ provider.on('block', async (blockNumber) => {
         if (netResult.lte(0)) {
             return
         }
-
-        // Acquire lock so we won't be submitting multiple transactions across adjacent
-        // blocks once we spot an arbitrage opportunity.
-        if (locked) {
-            console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
-            return
-        } else {
-            locked = true
-        }
         console.log(`#${blockNumber}: Path: ${JSON.stringify(path)}`)
 
         // TODO: Read gas limit dynamically
@@ -155,10 +155,10 @@ provider.on('block', async (blockNumber) => {
         )
         await tx.wait()
 
+        locked = false
         console.log(`#${blockNumber}: Flashloan request ${tx.hash} successfully mined`)
     } catch (err) {
-        console.error(`#${blockNumber}: Failed to execute flasloan request: ${err}`)
-    } finally {
         locked = false
+        console.error(`#${blockNumber}: Failed to execute flasloan request: ${err}`)
     }
 });
