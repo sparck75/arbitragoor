@@ -8,6 +8,7 @@ import { arbitrageCheck, getKlima } from './helpers'
 const config = new ConfigService()
 const provider = new ethers.providers.JsonRpcProvider(config.get('NODE_API_URL'))
 const wallet = new ethers.Wallet(config.get('PRIVATE_KEY'), provider)
+console.log(`Keeper address: ${wallet.address}`)
 
 
 /************************************************
