@@ -1,31 +1,76 @@
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
+
+import { config } from './config'
 
 // Copied from https://github.com/sushiswap/sushiswap/blob/45da97206358039039883c4a99c005bb8a4bef0c/contracts/uniswapv2/libraries/UniswapV2Library.sol#L48-L51
-export const getAmountOut = function(amountIn: BigNumber, reserveIn: BigNumber, reserveOut: BigNumber): BigNumber {
+const getAmountOut = function(amountIn: BigNumber, reserveIn: BigNumber, reserveOut: BigNumber): BigNumber {
     const amountInWithFee = amountIn.mul(997)
     const numerator = amountInWithFee.mul(reserveOut)
     const denominator = reserveIn.mul(1000).add(amountInWithFee)
     return numerator.div(denominator)
 }
 
-export const getKlima = async function(amountIn: BigNumber, usdcToToken: ethers.Contract, tokenToKlima: ethers.Contract): Promise<BigNumber> {
-    const usdcReserves = await usdcToToken.getReserves()
-    const tokenAmount = getAmountOut(amountIn, usdcReserves[0], usdcReserves[1])
-    const klimaReserves = await tokenToKlima.getReserves()
-    return getAmountOut(tokenAmount, klimaReserves[0], klimaReserves[1])
+export const checkReserves = function(
+    usdcToBorrow: BigNumber,
+    usdcTokenReserve: any,
+    tokenKlimaReserve: any,
+    tokenAddress: string,
+    routes: Route[],
+): void {
+    const [
+        usdcTokenUsdcReserve,
+        usdcTokenTokenReserve
+    ] = usdcTokenReserve
+    const [
+        klimaTokenTokenReserve,
+        klimaTokenKlimaReserve
+    ] = tokenKlimaReserve
+
+    const klimaViaToken = getKlima(
+        usdcToBorrow, 
+        usdcTokenUsdcReserve,
+        usdcTokenTokenReserve,
+        klimaTokenTokenReserve,
+        klimaTokenKlimaReserve,
+    )
+    routes.push({
+        klimaAmount: klimaViaToken,
+        usdcTokenUsdcReserve: usdcTokenUsdcReserve,
+        usdcTokenTokenReserve: usdcTokenTokenReserve,
+        klimaTokenTokenReserve: klimaTokenTokenReserve,
+        klimaTokenKlimaReserve: klimaTokenKlimaReserve,
+        path: [ config.get('USDC_ADDRESS'), tokenAddress, config.get('KLIMA_ADDRESS')]
+    })
 }
 
-export const getUsdc = async function(amountIn: BigNumber, usdcToToken: ethers.Contract, tokenToKlima: ethers.Contract): Promise<BigNumber> {
-    const klimaReserves = await tokenToKlima.getReserves()
-    const tokenAmount = getAmountOut(amountIn, klimaReserves[1], klimaReserves[0])
-    const usdcReserves = await usdcToToken.getReserves()
-    return getAmountOut(tokenAmount, usdcReserves[1], usdcReserves[0])
+const getKlima = function(
+    amountIn: BigNumber,
+    usdcTokenUsdcReserve: BigNumber,
+    usdcTokenTokenReserve: BigNumber,
+    klimaTokenTokenReserve: BigNumber,
+    klimaTokenKlimaReserve: BigNumber,
+): BigNumber {
+    const tokenAmount = getAmountOut(amountIn, usdcTokenUsdcReserve, usdcTokenTokenReserve)
+    return getAmountOut(tokenAmount, klimaTokenTokenReserve, klimaTokenKlimaReserve)
 }
 
-interface Route {
+const getUsdc = function(
+    amountIn: BigNumber,
+    klimaTokenKlimaReserve: BigNumber,
+    klimaTokenTokenReserve: BigNumber,
+    usdcTokenTokenReserve: BigNumber,
+    usdcTokenUsdcReserve: BigNumber,
+): BigNumber {
+    const tokenAmount = getAmountOut(amountIn, klimaTokenKlimaReserve, klimaTokenTokenReserve)
+    return getAmountOut(tokenAmount, usdcTokenTokenReserve, usdcTokenUsdcReserve)
+}
+
+export interface Route {
     klimaAmount: BigNumber
-    usdcToToken: ethers.Contract
-    tokenToKlima: ethers.Contract
+    usdcTokenUsdcReserve: BigNumber
+    usdcTokenTokenReserve: BigNumber
+    klimaTokenTokenReserve: BigNumber
+    klimaTokenKlimaReserve: BigNumber
     path: string[]
 }
 
@@ -34,7 +79,7 @@ interface Result {
     path: string[]
 }
 
-export const arbitrageCheck = async function(routes: Route[], debt: BigNumber): Promise<Result> {
+export const arbitrageCheck = function(routes: Route[], debt: BigNumber): Result {
     if (routes.length < 2)
         throw Error('Need multiple routes to check for arbitrage')
 
@@ -49,10 +94,12 @@ export const arbitrageCheck = async function(routes: Route[], debt: BigNumber): 
     // At this point we know that the last route in the array gets us the
     // most KLIMA for usdcToBorrow so we use that KLIMA amount to check how
     // much USDC the other route can give us.
-    const gotUsdc = await getUsdc(
+    const gotUsdc = getUsdc(
         routes[last].klimaAmount,
-        routes[0].usdcToToken,
-        routes[0].tokenToKlima
+        routes[0].klimaTokenKlimaReserve,
+        routes[0].klimaTokenTokenReserve,
+        routes[0].usdcTokenTokenReserve,
+        routes[0].usdcTokenUsdcReserve,
     )
 
     const netResult = gotUsdc.sub(debt)

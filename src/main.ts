@@ -1,12 +1,14 @@
 import { ChainId, Pair, Token } from '@sushiswap/sdk'
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
+import { Contract, Provider } from 'ethers-multicall'
 
-import { ConfigService } from './config'
-import { arbitrageCheck, getKlima } from './helpers'
+import { config } from './config'
+import { arbitrageCheck, checkReserves, Route } from './helpers'
 
 
-const config = new ConfigService()
 const provider = new ethers.providers.JsonRpcProvider(config.get('NODE_API_URL'))
+const multicallProvider = new Provider(provider)
+multicallProvider.init()
 const wallet = new ethers.Wallet(config.get('PRIVATE_KEY'), provider)
 console.log(`Keeper address: ${wallet.address}`)
 
@@ -45,15 +47,21 @@ console.log(`KLIMA/MCO2: ${klimaMco2Address}`)
  *  ROUTES TO ARB
  ***********************************************/
 
-const uniPairAbi = new ethers.utils.Interface([
+const uniPairAbi = [
     'function getReserves() view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)',
-])
+]
 // USDC -> BCT -> KLIMA
-const usdcBct = new ethers.Contract(usdcBctAddress, uniPairAbi, wallet)
-const klimaBct = new ethers.Contract(klimaBctAddress, uniPairAbi, wallet)
+const usdcBct = new Contract(usdcBctAddress, uniPairAbi)
+const klimaBct = new Contract(klimaBctAddress, uniPairAbi)
 // USDC -> MCO2 -> KLIMA
-const usdcMco2 = new ethers.Contract(usdcMco2Address, uniPairAbi, wallet)
-const klimaMco2 = new ethers.Contract(klimaMco2Address, uniPairAbi, wallet)
+const usdcMco2 = new Contract(usdcMco2Address, uniPairAbi)
+const klimaMco2 = new Contract(klimaMco2Address, uniPairAbi)
+const calls = [
+    usdcBct.getReserves(), 
+    klimaBct.getReserves(), 
+    usdcMco2.getReserves(), 
+    klimaMco2.getReserves(),
+]
 
 
 /************************************************
@@ -89,28 +97,34 @@ let locked = false
 provider.on('block', async (blockNumber) => {
     try {
         // Gather reserves from all Klima pools
-        const klimaPools = []
-
+        const klimaPools: Route[] = []
+        const [
+            usdcBctResp,
+            klimaBctResp,
+            usdcMco2Resp,
+            klimaMco2Resp,
+        ] = await multicallProvider.all(calls);
+    
         // USDC -> BCT -> KLIMA
-        const klimaViaBct = await getKlima(usdcToBorrow, usdcBct, klimaBct)
-        klimaPools.push({
-            klimaAmount: klimaViaBct,
-            usdcToToken: usdcBct,
-            tokenToKlima: klimaBct,
-            path: [ usdc.address, bct.address, klima.address]
-        })
+        checkReserves(
+            usdcToBorrow,
+            usdcBctResp,
+            klimaBctResp,
+            bct.address,
+            klimaPools,
+        )
 
         // USDC -> MCO2 -> KLIMA
-        const klimaViaMco2 = await getKlima(usdcToBorrow, usdcMco2, klimaMco2)
-        klimaPools.push({
-            klimaAmount: klimaViaMco2,
-            usdcToToken: usdcMco2,
-            tokenToKlima: klimaMco2,
-            path: [ usdc.address, mco2.address, klima.address]
-        })
+        checkReserves(
+            usdcToBorrow,
+            usdcMco2Resp,
+            klimaMco2Resp,
+            mco2.address,
+            klimaPools,
+        )
 
         // Check whether we can execute an arbitrage
-        const { netResult, path } = await arbitrageCheck(klimaPools, totalDebt)
+        const { netResult, path } = arbitrageCheck(klimaPools, totalDebt)
         console.log(`#${blockNumber}: Got USDC return: ${netResult.div(1e6)}`)
         if (netResult.lte(0)) {
             return
@@ -124,7 +138,7 @@ provider.on('block', async (blockNumber) => {
         } else {
             locked = true
         }
-        console.log(`Path: ${JSON.stringify(path)}`)
+        console.log(`#${blockNumber}: Path: ${JSON.stringify(path)}`)
 
         // TODO: Read gas limit dynamically
         // const gasLimit = BigNumber.from(600000)

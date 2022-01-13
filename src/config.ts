@@ -19,11 +19,11 @@ export class ConfigService {
     constructor() {
       this.config = this.validateConfig(dotenv.config().parsed)
     }
-  
+
     get(key: string): string {
       return process.env[key] || this.config[key]
     }
-  
+
     private validateConfig(parsedConfig: any): any {
       const { error, value: validatedEnvConfig } = applicationConfigSchema.validate(parsedConfig)
       if (error) {
@@ -31,5 +31,6 @@ export class ConfigService {
       }
       return validatedEnvConfig
     }
-  }
-  
+}
+
+export const config = new ConfigService()

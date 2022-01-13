@@ -23,6 +23,7 @@
     "@ethersproject/bignumber": "^5.5.0",
     "@sushiswap/sdk": "^5.0.0-canary.116",
     "dotenv": "^10.0.0",
+    "ethers-multicall": "^0.2.1",
     "joi": "^17.5.0"
   }
 }
