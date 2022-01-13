@@ -1,0 +1,16 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+        
+    - name: Build
+      id: docker_build
+      uses: docker/build-push-action@v2
