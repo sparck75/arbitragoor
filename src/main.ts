@@ -97,16 +97,16 @@ console.log(`USDC to borrow: ${usdcHumanReadble}`)
 let locked = false
 
 provider.on('block', async (blockNumber) => {
-    try {
-        // Acquire lock so we won't be submitting multiple transactions across adjacent
-        // blocks once we spot an arbitrage opportunity.
-        if (locked) {
-            console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
-            return
-        } else {
-            locked = true
-        }
+    // Acquire lock so we won't be submitting multiple transactions across adjacent
+    // blocks once we spot an arbitrage opportunity.
+    if (locked) {
+        console.log(`#${blockNumber}: Ignoring this block as there is already an in-flight request`)
+        return
+    } else {
+        locked = true
+    }
 
+    try {
         // Gather reserves from all Klima pools
         const klimaPools: Route[] = []
         const [
@@ -167,10 +167,10 @@ provider.on('block', async (blockNumber) => {
         )
         await tx.wait()
 
-        locked = false
         console.log(`#${blockNumber}: Flashloan request ${tx.hash} successfully mined`)
     } catch (err) {
-        locked = false
         console.error(`#${blockNumber}: Failed to execute flasloan request: ${err}`)
+    } finally {
+        locked = false
     }
 });
