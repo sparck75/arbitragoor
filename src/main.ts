@@ -6,7 +6,7 @@ import { config } from './config'
 import { arbitrageCheck, checkReserves, Route } from './helpers'
 
 
-const provider = new ethers.providers.JsonRpcProvider(config.get('NODE_API_URL'))
+const provider = new ethers.providers.StaticJsonRpcProvider(config.get('NODE_API_URL'))
 const multicallProvider = new Provider(provider)
 multicallProvider.init()
 const wallet = new ethers.Wallet(config.get('PRIVATE_KEY'), provider)
