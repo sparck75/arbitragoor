@@ -11,6 +11,8 @@ const applicationConfigSchema: Joi.ObjectSchema = Joi.object({
     USDC_ADDRESS: Joi.string().required(),
     BCT_ADDRESS: Joi.string().required(),
     MCO2_ADDRESS: Joi.string().required(),
+    USDC_MCO2_ADDRESS: Joi.string().required(),
+    KLIMA_MCO2_ADDRESS: Joi.string().required(),
 })
 
 export class ConfigService {

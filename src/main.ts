@@ -33,9 +33,11 @@ console.log(`MCO2: ${mco2.address}`)
  ***********************************************/
 
 const usdcBctAddress = Pair.getAddress(usdc, bct)
-const usdcMco2Address = Pair.getAddress(usdc, mco2)
 const klimaBctAddress = Pair.getAddress(klima, bct)
-const klimaMco2Address = Pair.getAddress(klima, mco2)
+// For some reason the QuickSwap SDK does not return
+// the proper pair address so override here via env variables
+const usdcMco2Address = config.get('USDC_MCO2_ADDRESS')
+const klimaMco2Address = config.get('KLIMA_MCO2_ADDRESS')
 
 console.log(`USDC/BCT: ${usdcBctAddress}`)
 console.log(`USDC/MCO2: ${usdcMco2Address}`)
@@ -69,7 +71,7 @@ const calls = [
  ***********************************************/
 
 const flashloanAbi = new ethers.utils.Interface([
-    'function flashloan(address asset, uint256 amount, address[] calldata path) public',
+    'function flashloan(address asset, uint256 amount, bool zeroToOne, address[] calldata path0, address[] calldata path1) public',
 ])
 const flashloanAddress = config.get('FLASHLOAN_ADDRESS')
 const loaner = new ethers.Contract(flashloanAddress, flashloanAbi, wallet)
@@ -120,6 +122,10 @@ provider.on('block', async (blockNumber) => {
             usdcBctResp,
             klimaBctResp,
             bct.address,
+            // This should match the router that supports this path in the contract
+            // In this case router0 is meant to be the SushiSwap router.
+            0,
+            false,
             klimaPools,
         )
 
@@ -129,16 +135,20 @@ provider.on('block', async (blockNumber) => {
             usdcMco2Resp,
             klimaMco2Resp,
             mco2.address,
+            // This should match the router that supports this path in the contract
+            // In this case router1 is meant to be the QuickSwap router.
+            1,
+            true,
             klimaPools,
         )
 
         // Check whether we can execute an arbitrage
-        const { netResult, path } = arbitrageCheck(klimaPools, totalDebt)
+        const { netResult, zeroToOne, path0, path1 } = arbitrageCheck(klimaPools, totalDebt)
         console.log(`#${blockNumber}: Got USDC return: ${netResult.div(1e6)}`)
         if (netResult.lte(0)) {
             return
         }
-        console.log(`#${blockNumber}: Path: ${JSON.stringify(path)}`)
+        console.log(`#${blockNumber}: ZeroToOne: ${zeroToOne}, Path: ${JSON.stringify({path0, path1})}`)
 
         // TODO: Read gas limit dynamically
         // const gasLimit = BigNumber.from(600000)
@@ -151,7 +161,9 @@ provider.on('block', async (blockNumber) => {
         const tx = await loaner.flashloan(
             config.get('USDC_ADDRESS'),
             usdcToBorrow,
-            path,
+            zeroToOne,
+            path0,
+            path1,
         )
         await tx.wait()
 

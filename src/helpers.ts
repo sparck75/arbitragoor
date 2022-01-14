@@ -15,6 +15,8 @@ export const checkReserves = function(
     usdcTokenReserve: any,
     tokenKlimaReserve: any,
     tokenAddress: string,
+    supportedRouter: number,
+    klimaReverse: boolean,
     routes: Route[],
 ): void {
     const [
@@ -26,19 +28,36 @@ export const checkReserves = function(
         klimaTokenKlimaReserve
     ] = tokenKlimaReserve
 
-    const klimaViaToken = getKlima(
-        usdcToBorrow, 
-        usdcTokenUsdcReserve,
-        usdcTokenTokenReserve,
-        klimaTokenTokenReserve,
-        klimaTokenKlimaReserve,
-    )
+    let klimaViaToken: BigNumber;
+    if (klimaReverse) {
+        // QuickSwap returns first the KLIMA reserve
+        // in the KLIMA/MCO2 pool, then the MCO2 reserve
+        klimaViaToken = getKlima(
+            usdcToBorrow,
+            usdcTokenUsdcReserve,
+            usdcTokenTokenReserve,
+            klimaTokenKlimaReserve,
+            klimaTokenTokenReserve,
+        )
+    } else {
+        // SushiSwap returns first the BCT reserve
+        // in the KLIMA/BCT pool, then the KLIMA reserve
+        klimaViaToken = getKlima(
+            usdcToBorrow,
+            usdcTokenUsdcReserve,
+            usdcTokenTokenReserve,
+            klimaTokenTokenReserve,
+            klimaTokenKlimaReserve,
+        )
+    }
+
     routes.push({
         klimaAmount: klimaViaToken,
         usdcTokenUsdcReserve: usdcTokenUsdcReserve,
         usdcTokenTokenReserve: usdcTokenTokenReserve,
-        klimaTokenTokenReserve: klimaTokenTokenReserve,
-        klimaTokenKlimaReserve: klimaTokenKlimaReserve,
+        klimaTokenTokenReserve: klimaReverse ? klimaTokenKlimaReserve : klimaTokenTokenReserve,
+        klimaTokenKlimaReserve: klimaReverse ? klimaTokenTokenReserve: klimaTokenKlimaReserve,
+        supportedRouter,
         path: [ config.get('USDC_ADDRESS'), tokenAddress, config.get('KLIMA_ADDRESS')]
     })
 }
@@ -66,6 +85,7 @@ const getUsdc = function(
 }
 
 export interface Route {
+    supportedRouter: number
     klimaAmount: BigNumber
     usdcTokenUsdcReserve: BigNumber
     usdcTokenTokenReserve: BigNumber
@@ -76,7 +96,9 @@ export interface Route {
 
 interface Result {
     netResult: BigNumber
-    path: string[]
+    zeroToOne: boolean
+    path0: string[]
+    path1: string[]
 }
 
 export const arbitrageCheck = function(routes: Route[], debt: BigNumber): Result {
@@ -107,18 +129,24 @@ export const arbitrageCheck = function(routes: Route[], debt: BigNumber): Result
         // Not today
         return {
             netResult,
-            path: [],
+            zeroToOne: false,
+            path0: [],
+            path1: [],
         }
     }
 
     return {
         netResult,
-        path: [
+        zeroToOne: routes[last].supportedRouter == 0,
+        path0: [
             routes[last].path[0],
             routes[last].path[1],
             routes[last].path[2],
+        ],
+        path1: [
+            routes[0].path[2],
             routes[0].path[1],
             routes[0].path[0],
-        ],
+        ]
     }
 }
