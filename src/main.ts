@@ -1,6 +1,6 @@
 import { ChainId, Pair, Token } from '@sushiswap/sdk'
-import { ethers } from 'ethers'
-import { Contract, Provider } from 'ethers-multicall'
+import { Contract, ethers } from 'ethers'
+import { Contract as MulticallContract, Provider } from 'ethers-multicall'
 
 import { config } from './config'
 import { arbitrageCheck, checkReserves, Route } from './helpers'
@@ -51,20 +51,39 @@ console.log(`KLIMA/MCO2: ${klimaMco2Address}`)
 
 const uniPairAbi = [
     'function getReserves() view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)',
+    'function token0() view returns (address)',
 ]
 // USDC -> BCT -> KLIMA
-const usdcBct = new Contract(usdcBctAddress, uniPairAbi)
-const klimaBct = new Contract(klimaBctAddress, uniPairAbi)
+const usdcBct = new MulticallContract(usdcBctAddress, uniPairAbi)
+const klimaBct = new MulticallContract(klimaBctAddress, uniPairAbi)
 // USDC -> MCO2 -> KLIMA
-const usdcMco2 = new Contract(usdcMco2Address, uniPairAbi)
-const klimaMco2 = new Contract(klimaMco2Address, uniPairAbi)
+const usdcMco2 = new MulticallContract(usdcMco2Address, uniPairAbi)
+const klimaMco2 = new MulticallContract(klimaMco2Address, uniPairAbi)
 const calls = [
-    usdcBct.getReserves(), 
-    klimaBct.getReserves(), 
-    usdcMco2.getReserves(), 
+    usdcBct.getReserves(),
+    klimaBct.getReserves(),
+    usdcMco2.getReserves(),
     klimaMco2.getReserves(),
 ]
 
+let usdcBctReverse: boolean
+let usdcMco2Reverse: boolean
+let klimaBctReverse: boolean
+let klimaMco2Reverse: boolean
+
+(async () => {
+    const usdcBct = new Contract(usdcBctAddress, uniPairAbi, provider)
+    const klimaBct = new Contract(klimaBctAddress, uniPairAbi, provider)
+    const usdcMco2 = new Contract(usdcMco2Address, uniPairAbi, provider)
+    const klimaMco2 = new Contract(klimaMco2Address, uniPairAbi, provider)
+    usdcBctReverse = (await usdcBct.token0()) != config.get('USDC_ADDRESS')
+    usdcMco2Reverse = (await usdcMco2.token0()) != config.get('USDC_ADDRESS')
+    klimaBctReverse = (await klimaBct.token0()) != config.get('KLIMA_ADDRESS')
+    klimaMco2Reverse = (await klimaMco2.token0()) != config.get('KLIMA_ADDRESS')
+})().catch(e => {
+   console.log(`Failed to fetch tokens: ${e.message}`)
+   process.exit(1)
+})
 
 /************************************************
  *  FLASHLOAN INTERFACE
@@ -125,7 +144,8 @@ provider.on('block', async (blockNumber) => {
             // This should match the router that supports this path in the contract
             // In this case router0 is meant to be the SushiSwap router.
             0,
-            false,
+            usdcBctReverse,
+            klimaBctReverse,
             klimaPools,
         )
 
@@ -138,7 +158,8 @@ provider.on('block', async (blockNumber) => {
             // This should match the router that supports this path in the contract
             // In this case router1 is meant to be the QuickSwap router.
             1,
-            true,
+            usdcMco2Reverse,
+            klimaMco2Reverse,
             klimaPools,
         )
 

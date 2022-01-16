@@ -16,6 +16,7 @@ export const checkReserves = function(
     tokenKlimaReserve: any,
     tokenAddress: string,
     supportedRouter: number,
+    usdcReverse: boolean,
     klimaReverse: boolean,
     routes: Route[],
 ): void {
@@ -28,35 +29,20 @@ export const checkReserves = function(
         klimaTokenKlimaReserve
     ] = tokenKlimaReserve
 
-    let klimaViaToken: BigNumber;
-    if (klimaReverse) {
-        // QuickSwap returns first the KLIMA reserve
-        // in the KLIMA/MCO2 pool, then the MCO2 reserve
-        klimaViaToken = getKlima(
-            usdcToBorrow,
-            usdcTokenUsdcReserve,
-            usdcTokenTokenReserve,
-            klimaTokenKlimaReserve,
-            klimaTokenTokenReserve,
-        )
-    } else {
-        // SushiSwap returns first the BCT reserve
-        // in the KLIMA/BCT pool, then the KLIMA reserve
-        klimaViaToken = getKlima(
-            usdcToBorrow,
-            usdcTokenUsdcReserve,
-            usdcTokenTokenReserve,
-            klimaTokenTokenReserve,
-            klimaTokenKlimaReserve,
-        )
-    }
+    const klimaViaToken = getKlima(
+        usdcToBorrow,
+        usdcReverse ? usdcTokenTokenReserve : usdcTokenUsdcReserve,
+        usdcReverse ? usdcTokenUsdcReserve : usdcTokenTokenReserve,
+        klimaReverse ? klimaTokenTokenReserve: klimaTokenKlimaReserve,
+        klimaReverse ? klimaTokenKlimaReserve : klimaTokenTokenReserve,
+    )
 
     routes.push({
         klimaAmount: klimaViaToken,
-        usdcTokenUsdcReserve: usdcTokenUsdcReserve,
-        usdcTokenTokenReserve: usdcTokenTokenReserve,
-        klimaTokenTokenReserve: klimaReverse ? klimaTokenKlimaReserve : klimaTokenTokenReserve,
-        klimaTokenKlimaReserve: klimaReverse ? klimaTokenTokenReserve: klimaTokenKlimaReserve,
+        usdcTokenUsdcReserve: usdcReverse ? usdcTokenTokenReserve : usdcTokenUsdcReserve,
+        usdcTokenTokenReserve: usdcReverse ? usdcTokenUsdcReserve : usdcTokenTokenReserve,
+        klimaTokenTokenReserve: klimaReverse ? klimaTokenTokenReserve: klimaTokenKlimaReserve,
+        klimaTokenKlimaReserve: klimaReverse ? klimaTokenKlimaReserve : klimaTokenTokenReserve,
         supportedRouter,
         path: [ config.get('USDC_ADDRESS'), tokenAddress, config.get('KLIMA_ADDRESS')]
     })
