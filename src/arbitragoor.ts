@@ -101,7 +101,7 @@ export default class Arbitragoor {
          ***********************************************/
 
         const flashloanAbi = new ethers.utils.Interface([
-            'function flashloan(address asset, uint256 amount, bool zeroToOne, address[] calldata path0, address[] calldata path1) public',
+            'function flashloan(address asset, uint256 amount, address[] calldata path0, address[] calldata path1, uint8 path0Router, uint8 path1Router) public',
         ])
         const flashloanAddress = config.get('FLASHLOAN_ADDRESS')
         this.loaner = new ethers.Contract(flashloanAddress, flashloanAbi, this.wallet)
@@ -130,10 +130,10 @@ export default class Arbitragoor {
         const klimaBct = new Contract(this.klimaBctAddress, this.uniPairAbi, this.provider)
         const usdcMco2 = new Contract(this.usdcMco2Address, this.uniPairAbi, this.provider)
         const klimaMco2 = new Contract(this.klimaMco2Address, this.uniPairAbi, this.provider)
-        this.usdcBctReverse = (await usdcBct.token0()) != config.get('USDC_ADDRESS')
-        this.usdcMco2Reverse = (await usdcMco2.token0()) != config.get('USDC_ADDRESS')
-        this.klimaBctReverse = (await klimaBct.token0()) != config.get('KLIMA_ADDRESS')
-        this.klimaMco2Reverse = (await klimaMco2.token0()) != config.get('KLIMA_ADDRESS')
+        this.usdcBctReverse = (await usdcBct.token0()).toLowerCase() != config.get('USDC_ADDRESS').toLowerCase()
+        this.usdcMco2Reverse = (await usdcMco2.token0()).toLowerCase() != config.get('USDC_ADDRESS').toLowerCase()
+        this.klimaBctReverse = (await klimaBct.token0()).toLowerCase() != config.get('KLIMA_ADDRESS').toLowerCase()
+        this.klimaMco2Reverse = (await klimaMco2.token0()).toLowerCase() != config.get('KLIMA_ADDRESS').toLowerCase()
 
         this.isInitialized = true
     }
@@ -164,7 +164,7 @@ export default class Arbitragoor {
                     klimaBctReserve,
                     usdcMco2Reserve,
                     klimaMco2Reserve,
-                ] = await this.multicallProvider.all(this.calls);
+                ] = await this.multicallProvider.all(this.calls)
 
                 // USDC -> BCT -> KLIMA
                 checkReserves(
@@ -195,12 +195,18 @@ export default class Arbitragoor {
                 )
 
                 // Check whether we can execute an arbitrage
-                const { netResult, zeroToOne, path0, path1 } = arbitrageCheck(klimaPools, this.totalDebt)
+                const {
+                    netResult,
+                    path0,
+                    path1,
+                    path0Router,
+                    path1Router,
+                } = arbitrageCheck(klimaPools, this.totalDebt)
                 console.log(`#${blockNumber}: Got USDC return: ${netResult.div(1e6)}`)
                 if (netResult.lte(0)) {
                     return
                 }
-                console.log(`#${blockNumber}: ZeroToOne: ${zeroToOne}, Path: ${JSON.stringify({path0, path1})}`)
+                console.log(`#${blockNumber}: ${JSON.stringify({path0Router, path0, path1Router, path1})}`)
 
                 // TODO: Read gas limit dynamically
                 // const gasLimit = BigNumber.from(600000)
@@ -213,9 +219,10 @@ export default class Arbitragoor {
                 const tx = await this.loaner.flashloan(
                     config.get('USDC_ADDRESS'),
                     this.usdcToBorrow,
-                    zeroToOne,
                     path0,
                     path1,
+                    path0Router,
+                    path1Router,
                 )
                 await tx.wait()
 
@@ -225,6 +232,6 @@ export default class Arbitragoor {
             } finally {
                 locked = false
             }
-        });
+        })
     }
 }

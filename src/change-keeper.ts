@@ -25,7 +25,7 @@ async function changeKeeper(newKeeper: string): Promise<void> {
     if (args.length != 3) {
         throw Error('invalid use: need to provide a single argument (new keeper address)')
     }
-    await changeKeeper(args[2]);
+    await changeKeeper(args[2])
 })().catch(e => {
    console.log(`Keeper change failed: ${e.message}`)
-});
+})

@@ -1,4 +1,4 @@
-import { BigNumber } from 'ethers';
+import { BigNumber } from 'ethers'
 
 import { config } from './config'
 
@@ -82,9 +82,10 @@ export interface Route {
 
 interface Result {
     netResult: BigNumber
-    zeroToOne: boolean
     path0: string[]
     path1: string[]
+    path0Router: number
+    path1Router: number
 }
 
 export const arbitrageCheck = function(routes: Route[], debt: BigNumber): Result {
@@ -115,20 +116,22 @@ export const arbitrageCheck = function(routes: Route[], debt: BigNumber): Result
         // Not today
         return {
             netResult,
-            zeroToOne: false,
+            path0Router: 0,
             path0: [],
+            path1Router: 0,
             path1: [],
         }
     }
 
     return {
         netResult,
-        zeroToOne: routes[last].supportedRouter == 0,
+        path0Router: routes[last].supportedRouter,
         path0: [
             routes[last].path[0],
             routes[last].path[1],
             routes[last].path[2],
         ],
+        path1Router: routes[0].supportedRouter,
         path1: [
             routes[0].path[2],
             routes[0].path[1],

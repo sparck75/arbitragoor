@@ -34,7 +34,7 @@ async function withdraw(): Promise<void> {
 }
 
 (async () => {
-    await withdraw();
+    await withdraw()
 })().catch(e => {
    console.log(`Withdrawal failed: ${e.message}`)
-});
+})
