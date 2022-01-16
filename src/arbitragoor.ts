@@ -160,17 +160,17 @@ export default class Arbitragoor {
                 // Gather reserves from all Klima pools
                 const klimaPools: Route[] = []
                 const [
-                    usdcBctResp,
-                    klimaBctResp,
-                    usdcMco2Resp,
-                    klimaMco2Resp,
+                    usdcBctReserve,
+                    klimaBctReserve,
+                    usdcMco2Reserve,
+                    klimaMco2Reserve,
                 ] = await this.multicallProvider.all(this.calls);
 
                 // USDC -> BCT -> KLIMA
                 checkReserves(
                     this.usdcToBorrow,
-                    usdcBctResp,
-                    klimaBctResp,
+                    usdcBctReserve,
+                    klimaBctReserve,
                     config.get('BCT_ADDRESS'),
                     // This should match the router that supports this path in the contract
                     // In this case router0 is meant to be the SushiSwap router.
@@ -183,8 +183,8 @@ export default class Arbitragoor {
                 // USDC -> MCO2 -> KLIMA
                 checkReserves(
                     this.usdcToBorrow,
-                    usdcMco2Resp,
-                    klimaMco2Resp,
+                    usdcMco2Reserve,
+                    klimaMco2Reserve,
                     config.get('MCO2_ADDRESS'),
                     // This should match the router that supports this path in the contract
                     // In this case router1 is meant to be the QuickSwap router.
